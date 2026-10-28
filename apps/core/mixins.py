@@ -18,5 +18,9 @@ class TenantQuerySetMixin:
         # For all other roles, restrict to their organization
         if hasattr(queryset.model, 'organization'):
             queryset = queryset.filter(organization_id=user.organization_id)
+
+              # Globally filter out soft-deleted records
+        if hasattr(queryset.model, 'is_deleted'):
+            queryset = queryset.filter(is_deleted=False)
             
         return queryset

@@ -25,3 +25,8 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
         # Automatically attach org and creator
         user = self.request.user
         serializer.save(organization=user.organization, created_by=user)
+
+    def perform_destroy(self, instance):
+        # Soft delete instead of hard delete for compliance
+        instance.is_deleted = True
+        instance.save()
