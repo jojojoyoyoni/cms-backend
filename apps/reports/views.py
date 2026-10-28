@@ -8,15 +8,17 @@ class DashboardStatsView(TenantQuerySetMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Use the mixin to get org-scoped cases
         return Case.objects.all()
 
     def get(self, request):
         queryset = self.get_queryset()
         user = request.user
 
-        # Apply hierarchical RBAC
-        if user.role == 'TEAM_LEADER':
+        if user.role == 'SUPERADMIN':
+            pass
+        elif user.role == 'ORG_ADMIN':
+            pass
+        elif user.role == 'TEAM_LEADER':
             queryset = queryset.filter(department_id=user.department_id)
         elif user.role == 'ANALYST':
             queryset = queryset.filter(assigned_to_id=user.id)
