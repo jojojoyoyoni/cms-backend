@@ -1,6 +1,6 @@
 from django.contrib import admin
+from django.conf import settings
 from django.urls import path, include
-from rest_framework import settings
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf.urls.static import static
 
@@ -17,7 +17,7 @@ urlpatterns = [
     path('api/cases/', include('apps.cases.urls')),
     path('api/audits/', include('apps.audits.urls')),
     path('api/reports/', include('apps.reports.urls')),
-    
+    path('api/notifications/', include('apps.notifications.urls')),
     
     # Placeholder routes for apps we will build next
     # path('api/audits/', include('apps.audits.urls')),

@@ -3,15 +3,16 @@ from apps.core.mixins import TenantQuerySetMixin
 from rest_framework.permissions import IsAuthenticated
 from .models import Case, CaseNote, CaseDocument
 from .serializers import CaseNoteSerializer, CaseSerializer, CaseDocumentSerializer
+from apps.notifications.services import send_notification_to_user
 
 class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
+    queryset = Case.objects.all()  
+
     serializer_class = CaseSerializer
 
     def get_queryset(self):
         # Start with the TenantQuerySetMixin logic (filters by Org, unless SuperAdmin)
-        # queryset = super().get_queryset()
-        queryset = Case.objects.all()  
-
+        queryset = super().get_queryset()
         user = self.request.user
 
         # Apply Hierarchical Role logic
@@ -25,8 +26,21 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Automatically attach org and creator
         user = self.request.user
-        serializer.save(organization=user.organization, created_by=user)
-
+        instance = serializer.save(organization=user.organization, created_by=user)
+        if instance.assigned_to:
+            send_notification_to_user(
+                user_id=instance.assigned_to_id,
+                message=f"A new case {instance.case_number} has been assigned to you.",
+                case_id=instance.id
+            )
+    def perform_update(self, serialiser):
+        instance = serialiser.save()
+        if instance.assigned_to:
+            send_notification_to_user(
+                user_id=instance.assigned_to_id,
+                message=f"The case {instance.case_number} has been updated.",
+                case_id=instance.id
+            )
     def perform_destroy(self, instance):
         # Soft delete instead of hard delete for compliance
         instance.is_deleted = True
