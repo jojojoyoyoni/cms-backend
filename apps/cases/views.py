@@ -1,22 +1,44 @@
 from rest_framework import viewsets
 from apps.core.mixins import TenantQuerySetMixin
 from rest_framework.permissions import IsAuthenticated
+
+from apps.users.permissions import HasRolePermission
 from .models import Case, CaseNote, CaseDocument
 from .serializers import CaseNoteSerializer, CaseSerializer, CaseDocumentSerializer
 from apps.notifications.services import send_notification_to_user
 
 class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
-    queryset = Case.objects.all()  
-
+    queryset = Case.objects.all()
     serializer_class = CaseSerializer
+    permission_classes = [IsAuthenticated, HasRolePermission]
+
+    # def get_queryset(self):
+    #     # Start with the TenantQuerySetMixin logic (filters by Org, unless SuperAdmin)
+    #     queryset = super().get_queryset()
+    #     user = self.request.user
+
+    #     # Apply Hierarchical Role logic
+    #     if user.role == 'TEAM_LEADER':
+    #         queryset = queryset.filter(department_id=user.department_id)
+    #     elif user.role == 'ANALYST':
+    #         queryset = queryset.filter(assigned_to_id=user.id)
+            
+    #     return queryset
+
 
     def get_queryset(self):
-        # Start with the TenantQuerySetMixin logic (filters by Org, unless SuperAdmin)
-        queryset = super().get_queryset()
         user = self.request.user
-
+        
+        # SUPER ADMINS CANNOT SEE CASES AT ALL!
+        if user.role == 'SUPERADMIN':
+            return Case.objects.none()
+            
+        queryset = super().get_queryset()
+        
         # Apply Hierarchical Role logic
-        if user.role == 'TEAM_LEADER':
+        if user.role == 'ORG_ADMIN':
+            pass # Sees all cases in org
+        elif user.role == 'TEAM_LEADER':
             queryset = queryset.filter(department_id=user.department_id)
         elif user.role == 'ANALYST':
             queryset = queryset.filter(assigned_to_id=user.id)
