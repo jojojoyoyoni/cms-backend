@@ -46,3 +46,22 @@ class Case(models.Model):
                 next_num = 1
             self.case_number = f"{prefix}{next_num:04d}"
         super().save(*args, **kwargs)
+
+class CaseDocument(models.Model):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='documents')
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    file = models.FileField(upload_to='case_documents/')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Document for {self.case.case_number}"
+
+class CaseNote(models.Model):
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='notes')
+    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='case_notes')
+    content = models.TextField()
+    is_internal = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Note by {self.author} on {self.case.case_number}"
