@@ -3,15 +3,21 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from apps.core.mixins import TenantQuerySetMixin
+from apps.users.permissions import ROLE_PERMISSIONS
 from .models import User, Organization, Department
 from .serializers import UserSerializer, CreateUserSerializer, OrganizationSerializer, DepartmentSerializer
+
+
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         serializer = UserSerializer(request.user)
-        return Response(serializer.data)
-
+        data = serializer.data
+        # Inject permissions into the response
+        data['permissions'] = ROLE_PERMISSIONS.get(request.user.role, [])
+        return Response(data)
+    
 class UserViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = User.objects.all()
