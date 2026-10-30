@@ -3,6 +3,14 @@ from django.contrib.auth.models import AbstractUser
 
 class Organization(models.Model):
     name = models.CharField(max_length=255, unique=True)
+    logo = models.ImageField(upload_to='organization_logos/', null=True, blank=True)
+    description = models.TextField(blank=True, null=True)
+    website = models.URLField(blank=True, null=True)
+        # New Contact & Location Fields
+    contact_email = models.EmailField(blank=True, null=True)
+    contact_phone = models.CharField(max_length=20, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    country = models.CharField(max_length=100, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -49,3 +49,14 @@ class UserViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         # Force the new user to be in the same org as the creator
         serializer.save(organization=self.request.user.organization)
+
+class OrganizationViewSet(viewsets.ModelViewSet):
+    serializer_class = OrganizationSerializer
+    queryset = Organization.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Only Super Admins can manage organizations
+        if self.request.user.role == 'SUPERADMIN':
+            return Organization.objects.all()
+        return Organization.objects.none()

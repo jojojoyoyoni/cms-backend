@@ -2,10 +2,27 @@ from rest_framework import serializers
 from .models import User, Organization, Department
 
 class OrganizationSerializer(serializers.ModelSerializer):
+    user_count = serializers.SerializerMethodField()
+    case_count = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Organization
-        fields = '__all__'
+        fields = ['id', 'name', 'logo', 'logo_url', 'description', 'website','contact_email', 'contact_phone', 'address', 'country', 'is_active', 'created_at', 'user_count', 'case_count']
+        read_only_fields = ['created_at', 'user_count', 'case_count', 'logo_url']
 
+    def get_user_count(self, obj):
+        return obj.users.count()
+
+    def get_case_count(self, obj):
+        return obj.cases.count()
+
+    def get_logo_url(self, obj):
+        request = self.context.get('request')
+        if request and obj.logo:
+            return request.build_absolute_uri(obj.logo.url)
+        return None
+    
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
