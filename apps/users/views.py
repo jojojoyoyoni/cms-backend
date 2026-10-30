@@ -56,7 +56,24 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        # Only Super Admins can manage organizations
         if self.request.user.role == 'SUPERADMIN':
             return Organization.objects.all()
         return Organization.objects.none()
+
+    def perform_create(self, serializer):
+        manager_id = serializer.validated_data.pop('manager_id', None)
+        org = serializer.save()
+        if manager_id:
+            manager = User.objects.get(id=manager_id)
+            manager.organization = org
+            manager.role = 'ORG_ADMIN'
+            manager.save()
+
+    def perform_update(self, serializer):
+        manager_id = serializer.validated_data.pop('manager_id', None)
+        org = serializer.save()
+        if manager_id:
+            manager = User.objects.get(id=manager_id)
+            manager.organization = org
+            manager.role = 'ORG_ADMIN'
+            manager.save()

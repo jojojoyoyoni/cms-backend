@@ -5,11 +5,14 @@ class OrganizationSerializer(serializers.ModelSerializer):
     user_count = serializers.SerializerMethodField()
     case_count = serializers.SerializerMethodField()
     logo_url = serializers.SerializerMethodField()
+    managers = serializers.SerializerMethodField()
+    manager_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+
 
     class Meta:
         model = Organization
-        fields = ['id', 'name', 'logo', 'logo_url', 'description', 'website','contact_email', 'contact_phone', 'address', 'country', 'is_active', 'created_at', 'user_count', 'case_count']
-        read_only_fields = ['created_at', 'user_count', 'case_count', 'logo_url']
+        fields = ['id', 'name', 'logo', 'logo_url', 'description', 'website','contact_email', 'contact_phone', 'address', 'country', 'managers', 'manager_id', 'is_active', 'created_at', 'user_count', 'case_count']
+        read_only_fields = ['created_at', 'user_count', 'case_count', 'logo_url', 'managers']
 
     def get_user_count(self, obj):
         return obj.users.count()
@@ -22,6 +25,10 @@ class OrganizationSerializer(serializers.ModelSerializer):
         if request and obj.logo:
             return request.build_absolute_uri(obj.logo.url)
         return None
+     # Add this method to get the Org Admins
+    def get_managers(self, obj):
+        managers = obj.users.filter(role='ORG_ADMIN')
+        return [{"id": m.id, "username": m.username, "email": m.email} for m in managers]
     
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
