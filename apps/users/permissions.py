@@ -61,5 +61,10 @@ class HasRolePermission(permissions.BasePermission):
             return 'cases.delete' in user_perms
         elif view.action in ['list', 'retrieve']:
             return 'cases.view' in user_perms # MUST have view permission!
+
+        elif view.action in ['request_closure', 'approve_closure', 'reject_closure']:
+            # Anyone who can view cases can perform workflow actions
+            # The specific role checks (Analyst vs Team Leader) are handled inside the view methods
+            return 'cases.view' in user_perms
         
         return False

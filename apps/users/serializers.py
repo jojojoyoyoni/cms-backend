@@ -38,7 +38,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'organization', 'department']
+        fields = ['id', 'username', 'email', 'role', 'organization', 'department', 'is_active', 'last_login', 'date_joined']
         depth = 1
 
 class CreateUserSerializer(serializers.ModelSerializer):

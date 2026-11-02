@@ -1,9 +1,15 @@
+from rest_framework.decorators import action
+from django.db.models import Q
+from rest_framework.response import Response
+from rest_framework import status
+from django.utils import timezone
 from rest_framework import viewsets
 from apps.core.mixins import TenantQuerySetMixin
 from rest_framework.permissions import IsAuthenticated
 
 from apps.users.permissions import HasRolePermission
 from .models import Case, CaseNote, CaseDocument
+from apps.users.models import User
 from .serializers import CaseNoteSerializer, CaseSerializer, CaseDocumentSerializer
 from apps.notifications.services import send_notification_to_user
 
@@ -11,20 +17,6 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     queryset = Case.objects.all()
     serializer_class = CaseSerializer
     permission_classes = [IsAuthenticated, HasRolePermission]
-
-    # def get_queryset(self):
-    #     # Start with the TenantQuerySetMixin logic (filters by Org, unless SuperAdmin)
-    #     queryset = super().get_queryset()
-    #     user = self.request.user
-
-    #     # Apply Hierarchical Role logic
-    #     if user.role == 'TEAM_LEADER':
-    #         queryset = queryset.filter(department_id=user.department_id)
-    #     elif user.role == 'ANALYST':
-    #         queryset = queryset.filter(assigned_to_id=user.id)
-            
-    #     return queryset
-
 
     def get_queryset(self):
         user = self.request.user
@@ -41,10 +33,10 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
         elif user.role == 'TEAM_LEADER':
             queryset = queryset.filter(department_id=user.department_id)
         elif user.role == 'ANALYST':
-            queryset = queryset.filter(assigned_to_id=user.id)
-            
-        return queryset
+               # FIX: Analysts can see cases assigned to them OR created by them
+            queryset = queryset.filter(Q(assigned_to_id=user.id) | Q(created_by_id=user.id))
 
+        return queryset
     def perform_create(self, serializer):
         # Automatically attach org and creator
         user = self.request.user
@@ -68,7 +60,65 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
         instance.is_deleted = True
         instance.save() 
 
-# ... existing CaseNoteViewSet ...
+
+    @action(detail=True, methods=['post'])
+    def request_closure(self, request, pk=None):
+        """Analysts request closure. Moves to PENDING_APPROVAL."""
+        case = self.get_object()
+        if request.user.role not in ['ANALYST', 'TEAM_LEADER', 'ORG_ADMIN']:
+            return Response({'error': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        
+        case.status = 'PENDING_APPROVAL'
+        case.resolution_notes = request.data.get('resolution_notes', '')
+        case.save()
+        
+        # Notify Team Leaders or Org Admins
+        if case.department:
+            leaders = User.objects.filter(department_id=case.department_id, role='TEAM_LEADER')
+            print(f"--- Found {leaders.count()} Team Leaders ---")
+
+            for leader in leaders:
+                send_notification_to_user(
+                    user_id=leader.id,
+                    message=f"Closure requested for case {case.case_number}.",
+                    case_id=case.id
+                )        
+        # ALSO Notify Org Admins (so it never gets lost)
+        org_admins = User.objects.filter(organization_id=case.organization_id, role='ORG_ADMIN')
+        print(f"--- Sending notification to: {admin.username} ---")
+
+        for admin in org_admins:
+            send_notification_to_user(
+                user_id=admin.id,
+                message=f"Closure requested for case {case.case_number}.",
+                case_id=case.id
+            )
+        return Response({'status': 'closure requested'})
+
+
+    @action(detail=True, methods=['post'])
+    def approve_closure(self, request, pk=None):
+        """Team Leaders/Org Admins approve closure."""
+        case = self.get_object()
+        if request.user.role not in ['TEAM_LEADER', 'ORG_ADMIN', 'SUPERADMIN']:
+            return Response({'error': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        
+        case.status = 'CLOSED'
+        case.approved_by = request.user
+        case.approved_at = timezone.now()
+        case.save()
+        return Response({'status': 'approved'})
+
+    @action(detail=True, methods=['post'])
+    def reject_closure(self, request, pk=None):
+        """Team Leaders/Org Admins reject closure. Reverts to IN_PROGRESS."""
+        case = self.get_object()
+        if request.user.role not in ['TEAM_LEADER', 'ORG_ADMIN']:
+            return Response({'error': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
+        
+        case.status = 'IN_PROGRESS'
+        case.save()
+        return Response({'status': 'rejected'})
 
 class CaseDocumentViewSet(viewsets.ModelViewSet):
     serializer_class = CaseDocumentSerializer

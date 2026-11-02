@@ -6,6 +6,7 @@ class Case(models.Model):
     class Status(models.TextChoices):
         OPEN = 'OPEN', 'Open'
         IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        PENDING_APPROVAL = 'PENDING_APPROVAL', 'Pending Approval'
         CLOSED = 'CLOSED', 'Closed'
 
     class Priority(models.TextChoices):
@@ -18,6 +19,11 @@ class Case(models.Model):
     department = models.ForeignKey(Department, null=True, blank=True, on_delete=models.SET_NULL, related_name='cases')
     assigned_to = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='assigned_cases')
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_cases')
+
+     # Approval Workflow Fields
+    resolution_notes = models.TextField(blank=True, null=True)
+    approved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_cases')
+    approved_at = models.DateTimeField(null=True, blank=True)
     
     # New Professional Fields
     case_number = models.CharField(max_length=50, unique=True, blank=True, editable=False)

@@ -31,7 +31,7 @@ class UserViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
             pass
         # ORG_ADMINS see all users in their organization
         elif user.role == 'ORG_ADMIN':
-            pass
+            pass # TenantQuerySetMixin already filters by organization_id
         # TEAM_LEADERS see users in their department
         elif user.role == 'TEAM_LEADER':
             queryset = queryset.filter(department_id=user.department_id)
@@ -77,3 +77,15 @@ class OrganizationViewSet(viewsets.ModelViewSet):
             manager.organization = org
             manager.role = 'ORG_ADMIN'
             manager.save()
+
+
+class DepartmentViewSet(viewsets.ModelViewSet):
+    serializer_class = DepartmentSerializer
+    queryset = Department.objects.all()
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'SUPERADMIN':
+            return Department.objects.all()
+        return Department.objects.filter(organization_id=user.organization_id)
