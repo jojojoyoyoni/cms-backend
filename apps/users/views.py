@@ -21,7 +21,8 @@ class MeView(APIView):
 class UserViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     queryset = User.objects.all()
-    
+    pagination_class = None
+
     def get_queryset(self):
         queryset = super().get_queryset()
         user = self.request.user
@@ -54,6 +55,7 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     serializer_class = OrganizationSerializer
     queryset = Organization.objects.all()
     permission_classes = [IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         if self.request.user.role == 'SUPERADMIN':
@@ -83,6 +85,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
     serializer_class = DepartmentSerializer
     queryset = Department.objects.all()
     permission_classes = [IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         user = self.request.user

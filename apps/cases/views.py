@@ -7,6 +7,10 @@ from rest_framework import viewsets
 from apps.core.mixins import TenantQuerySetMixin
 from rest_framework.permissions import IsAuthenticated
 
+from rest_framework.filters import SearchFilter, OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from apps.cases.filters import CaseFilter
+
 from apps.users.permissions import HasRolePermission
 from .models import Case, CaseNote, CaseDocument
 from apps.users.models import User
@@ -17,6 +21,13 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     queryset = Case.objects.all()
     serializer_class = CaseSerializer
     permission_classes = [IsAuthenticated, HasRolePermission]
+
+        # Add Filtering, Search, and Sorting
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = CaseFilter
+    search_fields = ['title', 'case_number', 'description']
+    ordering_fields = ['created_at', 'due_date', 'priority', 'title', 'case_number']
+    ordering = ['-created_at'] # Default sort: newest first
 
     def get_queryset(self):
         user = self.request.user
@@ -124,6 +135,7 @@ class CaseDocumentViewSet(viewsets.ModelViewSet):
     serializer_class = CaseDocumentSerializer
     queryset = CaseDocument.objects.all()
     permission_classes = [IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         user = self.request.user
@@ -144,6 +156,7 @@ class CaseNoteViewSet(viewsets.ModelViewSet):
     serializer_class = CaseNoteSerializer
     queryset = CaseNote.objects.all()
     permission_classes = [IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         user = self.request.user

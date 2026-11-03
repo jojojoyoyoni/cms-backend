@@ -8,6 +8,7 @@ from .serializers import NotificationSerializer
 class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = NotificationSerializer
+    pagination_class = None
 
     def get_queryset(self):
         return Notification.objects.filter(user=self.request.user).order_by('-created_at')
