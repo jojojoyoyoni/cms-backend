@@ -35,6 +35,7 @@ class User(AbstractUser):
         ANALYST = 'ANALYST', 'Analyst'
 
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.ANALYST)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, null=True, blank=True, related_name='users')
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, related_name='users')
 

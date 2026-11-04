@@ -36,10 +36,23 @@ class DepartmentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class UserSerializer(serializers.ModelSerializer):
+    profile_picture_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'organization', 'department', 'is_active', 'last_login', 'date_joined']
+        fields = ['id', 'username', 'email', 'role', 'organization', 'department', 'is_active', 'last_login', 'date_joined', 'profile_picture', 'profile_picture_url']
         depth = 1
+        read_only_fields = ['username', 'role', 'organization', 'department', 'is_active', 'last_login', 'date_joined']
+
+    def get_profile_picture_url(self, obj):
+        request = self.context.get('request')
+        if request and obj.profile_picture:
+            return request.build_absolute_uri(obj.profile_picture.url)
+        return None
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
 
 class CreateUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True)

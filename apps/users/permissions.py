@@ -38,7 +38,7 @@ ROLE_PERMISSIONS = {
         'reports.view'
     ],
     'ANALYST': [
-        'cases.view', 'cases.create', 'cases.update',
+        'cases.view', 'cases.create', 'cases.update', 'reports.view',
         # NO delete, NO assign, NO user management, NO reports
     ]
 }

@@ -1,22 +1,45 @@
-from rest_framework import viewsets
+from rest_framework import status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from apps.core.mixins import TenantQuerySetMixin
 from apps.users.permissions import ROLE_PERMISSIONS
 from .models import User, Organization, Department
-from .serializers import UserSerializer, CreateUserSerializer, OrganizationSerializer, DepartmentSerializer
+from .serializers import ChangePasswordSerializer, UserSerializer, CreateUserSerializer, OrganizationSerializer, DepartmentSerializer
 
 
 class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        serializer = UserSerializer(request.user)
+        serializer = UserSerializer(request.user, context={'request': request})
         data = serializer.data
-        # Inject permissions into the response
         data['permissions'] = ROLE_PERMISSIONS.get(request.user.role, [])
         return Response(data)
+
+    def patch(self, request):
+        user = request.user
+        serializer = UserSerializer(user, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            data = serializer.data
+            data['permissions'] = ROLE_PERMISSIONS.get(user.role, [])
+            return Response(data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            user = request.user
+            if not user.check_password(serializer.validated_data['old_password']):
+                return Response({'error': 'Incorrect old password.'}, status=status.HTTP_400_BAD_REQUEST)
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response({'status': 'password changed successfully'})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 class UserViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
