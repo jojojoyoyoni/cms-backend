@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Case, CaseNote, CaseDocument
+from .models import Case, CaseNote, CaseDocument, Task
 
 class CaseSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,3 +29,27 @@ class CaseNoteSerializer(serializers.ModelSerializer):
         model = CaseNote
         fields = ['id', 'case', 'author', 'content', 'is_internal', 'created_at']
         read_only_fields = ['author', 'created_at']
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    assigned_to_name = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    case_number = serializers.SerializerMethodField()
+    case_title = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Task
+        fields = ['id', 'case', 'case_number', 'case_title', 'title', 'description', 'status', 'priority', 'assigned_to', 'assigned_to_name', 'created_by', 'created_by_name', 'due_date', 'completed_at', 'created_at', 'updated_at']
+        read_only_fields = ['created_by', 'completed_at', 'created_at', 'updated_at', 'assigned_to_name', 'created_by_name', 'case_number', 'case_title']
+
+    def get_assigned_to_name(self, obj):
+        return obj.assigned_to.username if obj.assigned_to else None
+
+    def get_created_by_name(self, obj):
+        return obj.created_by.username if obj.created_by else None
+
+    def get_case_number(self, obj):
+        return obj.case.case_number if obj.case else None
+
+    def get_case_title(self, obj):
+        return obj.case.title if obj.case else None

@@ -71,3 +71,31 @@ class CaseNote(models.Model):
 
     def __str__(self):
         return f"Note by {self.author} on {self.case.case_number}"
+
+class Task(models.Model):
+    class Status(models.TextChoices):
+        TO_DO = 'TO_DO', 'To Do'
+        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
+        DONE = 'DONE', 'Done'
+        BLOCKED = 'BLOCKED', 'Blocked'
+
+    class Priority(models.TextChoices):
+        LOW = 'LOW', 'Low'
+        MEDIUM = 'MEDIUM', 'Medium'
+        HIGH = 'HIGH', 'High'
+        URGENT = 'URGENT', 'Urgent'
+
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name='tasks')
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.TO_DO)
+    priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.MEDIUM)
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_tasks')
+    due_date = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.case.case_number})"

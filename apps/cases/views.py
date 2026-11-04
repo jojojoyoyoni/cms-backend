@@ -12,9 +12,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from apps.cases.filters import CaseFilter
 
 from apps.users.permissions import HasRolePermission
-from .models import Case, CaseNote, CaseDocument
+from .models import Case, CaseNote, CaseDocument, Task
 from apps.users.models import User
-from .serializers import CaseNoteSerializer, CaseSerializer, CaseDocumentSerializer
+from .serializers import CaseNoteSerializer, CaseSerializer, CaseDocumentSerializer, TaskSerializer
 from apps.notifications.services import send_notification_to_user
 
 class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
@@ -176,3 +176,111 @@ class CaseNoteViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
+
+
+class TaskViewSet(viewsets.ModelViewSet):
+    serializer_class = TaskSerializer
+    queryset = Task.objects.all()
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'SUPERADMIN':
+            return Task.objects.none()
+        
+        queryset = Task.objects.filter(case__organization_id=user.organization_id)
+        
+        if user.role == 'TEAM_LEADER':
+            queryset = queryset.filter(case__department_id=user.department_id)
+        elif user.role == 'ANALYST':
+            queryset = queryset.filter(Q(assigned_to_id=user.id) | Q(created_by_id=user.id))
+        
+        case_id = self.request.query_params.get('case_id')
+        if case_id:
+            queryset = queryset.filter(case_id=case_id)
+        
+        return queryset.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        
+        # Analysts can only assign tasks to themselves
+        if user.role == 'ANALYST':
+            instance = serializer.save(created_by=user, assigned_to=user)
+        else:
+            # Team Leaders & Org Admins can assign to anyone
+            instance = serializer.save(created_by=user)
+        
+        # Send notification to assignee if it's not the creator
+        if instance.assigned_to and instance.assigned_to_id != user.id:
+            send_notification_to_user(
+                user_id=instance.assigned_to_id,
+                message=f"New task assigned: '{instance.title}' on Case {instance.case.case_number}",
+                case_id=instance.case_id
+            )
+        
+        # Notify Team Leaders when an Analyst creates a task
+        if user.role == 'ANALYST' and instance.case.department:
+            leaders = User.objects.filter(
+                department_id=instance.case.department_id, 
+                role='TEAM_LEADER'
+            )
+            for leader in leaders:
+                if leader.id != user.id:
+                    send_notification_to_user(
+                        user_id=leader.id,
+                        message=f"New task created by {user.username}: '{instance.title}' on Case {instance.case.case_number}",
+                        case_id=instance.case_id
+                    )
+    def perform_update(self, serializer):
+        user = self.request.user
+        old_instance = self.get_object()
+        old_status = old_instance.status
+        old_assignee = old_instance.assigned_to_id
+        
+        instance = serializer.save()
+        
+        # Notify new assignee if assignment changed
+        if instance.assigned_to_id != old_assignee and instance.assigned_to and instance.assigned_to_id != user.id:
+            send_notification_to_user(
+                user_id=instance.assigned_to_id,
+                message=f"Task reassigned to you: '{instance.title}' on Case {instance.case.case_number}",
+                case_id=instance.case_id
+            )
+        
+        # Notify creator when task is marked as DONE
+        if old_status != 'DONE' and instance.status == 'DONE':
+            instance.completed_at = timezone.now()
+            instance.save()
+            
+            if instance.created_by and instance.created_by_id != user.id:
+                send_notification_to_user(
+                    user_id=instance.created_by_id,
+                    message=f"Task completed: '{instance.title}' on Case {instance.case.case_number}",
+                    case_id=instance.case_id
+                )
+            
+            # Also notify Team Leaders
+            if instance.case.department:
+                leaders = User.objects.filter(
+                    department_id=instance.case.department_id,
+                    role='TEAM_LEADER'
+                )
+                for leader in leaders:
+                    if leader.id != user.id:
+                        send_notification_to_user(
+                            user_id=leader.id,
+                            message=f"✅ Task completed by {user.username}: '{instance.title}' on Case {instance.case.case_number}",
+                            case_id=instance.case_id
+                        )
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role not in ['ORG_ADMIN', 'TEAM_LEADER']:
+            return Response(
+                {'error': 'You do not have permission to delete tasks.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        instance = self.get_object()
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
