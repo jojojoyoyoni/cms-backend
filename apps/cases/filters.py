@@ -7,7 +7,7 @@ class CaseFilter(django_filters.FilterSet):
     
     class Meta:
         model = Case
-        fields = ['status', 'priority']
+        fields = ['status', 'priority']    # NO 'case' here!
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(

@@ -6,14 +6,13 @@ from django.utils import timezone
 from rest_framework import viewsets
 from apps.core.mixins import TenantQuerySetMixin
 from rest_framework.permissions import IsAuthenticated
-
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
-from apps.cases.filters import CaseFilter
 
 from apps.users.permissions import HasRolePermission
 from .models import Case, CaseNote, CaseDocument, Task
 from apps.users.models import User
+from apps.cases.filters import CaseFilter
 from .serializers import CaseNoteSerializer, CaseSerializer, CaseDocumentSerializer, TaskSerializer
 from apps.notifications.services import send_notification_to_user
 
@@ -21,33 +20,25 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     queryset = Case.objects.all()
     serializer_class = CaseSerializer
     permission_classes = [IsAuthenticated, HasRolePermission]
-
-        # Add Filtering, Search, and Sorting
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = CaseFilter
     search_fields = ['title', 'case_number', 'description']
     ordering_fields = ['created_at', 'due_date', 'priority', 'title', 'case_number']
-    ordering = ['-created_at'] # Default sort: newest first
-
+    ordering = ['-created_at']
+    
     def get_queryset(self):
         user = self.request.user
-        
-        # SUPER ADMINS CANNOT SEE CASES AT ALL!
         if user.role == 'SUPERADMIN':
             return Case.objects.none()
-            
         queryset = super().get_queryset()
-        
-        # Apply Hierarchical Role logic
-        if user.role == 'ORG_ADMIN':
-            pass # Sees all cases in org
+        if user.role in ['ORG_ADMIN', 'HIGHER_OFFICIAL']:
+            pass
         elif user.role == 'TEAM_LEADER':
             queryset = queryset.filter(department_id=user.department_id)
         elif user.role == 'ANALYST':
-               # FIX: Analysts can see cases assigned to them OR created by them
             queryset = queryset.filter(Q(assigned_to_id=user.id) | Q(created_by_id=user.id))
-
         return queryset
+    
     def perform_create(self, serializer):
         # Automatically attach org and creator
         user = self.request.user
@@ -76,7 +67,7 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     def request_closure(self, request, pk=None):
         """Analysts request closure. Moves to PENDING_APPROVAL."""
         case = self.get_object()
-        if request.user.role not in ['ANALYST', 'TEAM_LEADER', 'ORG_ADMIN']:
+        if request.user.role not in ['ANALYST', 'TEAM_LEADER', 'HIGHER_OFFICIAL', 'ORG_ADMIN']:
             return Response({'error': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         
         case.status = 'PENDING_APPROVAL'
@@ -111,7 +102,7 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     def approve_closure(self, request, pk=None):
         """Team Leaders/Org Admins approve closure."""
         case = self.get_object()
-        if request.user.role not in ['TEAM_LEADER', 'ORG_ADMIN', 'SUPERADMIN']:
+        if request.user.role not in ['TEAM_LEADER', 'HIGHER_OFFICIAL', 'ORG_ADMIN', 'SUPERADMIN']:
             return Response({'error': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         
         case.status = 'CLOSED'
@@ -124,7 +115,7 @@ class CaseViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
     def reject_closure(self, request, pk=None):
         """Team Leaders/Org Admins reject closure. Reverts to IN_PROGRESS."""
         case = self.get_object()
-        if request.user.role not in ['TEAM_LEADER', 'ORG_ADMIN']:
+        if request.user.role not in ['TEAM_LEADER', 'HIGHER_OFFICIAL', 'ORG_ADMIN']:
             return Response({'error': 'Not allowed'}, status=status.HTTP_403_FORBIDDEN)
         
         case.status = 'IN_PROGRESS'

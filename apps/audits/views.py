@@ -11,8 +11,11 @@ class AuditLogViewSet(TenantQuerySetMixin, viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        
         if user.role == 'SUPERADMIN':
             queryset = AuditLog.objects.all()
+        elif user.role in ['ORG_ADMIN', 'HIGHER_OFFICIAL']:  # Add HIGHER_OFFICIAL!
+            queryset = AuditLog.objects.filter(organization_id=user.organization_id)
         else:
             queryset = AuditLog.objects.filter(organization_id=user.organization_id)
         

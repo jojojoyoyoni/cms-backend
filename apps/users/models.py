@@ -31,6 +31,7 @@ class User(AbstractUser):
     class Role(models.TextChoices):
         SUPERADMIN = 'SUPERADMIN', 'Super Admin'
         ORG_ADMIN = 'ORG_ADMIN', 'Organization Admin'
+        HIGHER_OFFICIAL = 'HIGHER_OFFICIAL', 'Higher Official'
         TEAM_LEADER = 'TEAM_LEADER', 'Team Leader'
         ANALYST = 'ANALYST', 'Analyst'
 

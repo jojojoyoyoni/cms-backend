@@ -32,6 +32,15 @@ ROLE_PERMISSIONS = {
         'audits.view',
         'reports.view'
     ],
+
+    'HIGHER_OFFICIAL': [
+        'cases.view',           # View all cases (org-wide)
+        'cases.assign',          # Approve/Reject case closures
+        'audits.view',           # View audit logs
+        'reports.view',          # View reports & analytics
+        # NO cases.create, cases.update, cases.delete!
+        # NO users.manage!
+    ],
     'TEAM_LEADER': [
         'cases.view', 'cases.create', 'cases.update', 'cases.assign',
         # NO delete, NO user management

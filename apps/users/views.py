@@ -56,6 +56,9 @@ class UserViewSet(TenantQuerySetMixin, viewsets.ModelViewSet):
         # ORG_ADMINS see all users in their organization
         elif user.role == 'ORG_ADMIN':
             pass # TenantQuerySetMixin already filters by organization_id
+        # HIGHER_OFFICIALS see users in their organization
+        elif user.role in ['ORG_ADMIN', 'HIGHER_OFFICIAL']:  # Add HIGHER_OFFICIAL!
+           pass 
         # TEAM_LEADERS see users in their department
         elif user.role == 'TEAM_LEADER':
             queryset = queryset.filter(department_id=user.department_id)
