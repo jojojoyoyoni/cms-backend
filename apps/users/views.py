@@ -1,7 +1,12 @@
 from rest_framework import status, viewsets
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
+
+
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
 from apps.core.mixins import TenantQuerySetMixin
 from apps.users.permissions import ROLE_PERMISSIONS
 from .models import User, Organization, Department
@@ -118,3 +123,46 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         if user.role == 'SUPERADMIN':
             return Department.objects.all()
         return Department.objects.filter(organization_id=user.organization_id)
+
+    def check_manager_permission(self):
+        """Only Org Admins can create/edit/assign/remove"""
+        if self.request.user.role != 'ORG_ADMIN':
+            raise PermissionDenied('Only Organization Admins can manage departments.')
+
+    def perform_create(self, serializer):
+        self.check_manager_permission()
+        serializer.save(organization=self.request.user.organization)
+
+    def perform_update(self, serializer):
+        self.check_manager_permission()
+        serializer.save()
+
+    @action(detail=True, methods=['post'])
+    def assign_member(self, request, pk=None):
+        self.check_manager_permission()
+        dept = self.get_object()
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(id=user_id)
+            user.department = dept
+            user.save()
+            return Response({'status': f'{user.username} assigned to {dept.name}'})
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=True, methods=['post'])
+    def remove_member(self, request, pk=None):
+        self.check_manager_permission()
+        dept = self.get_object()
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(id=user_id)
+            user.department = None
+            user.save()
+            return Response({'status': f'{user.username} removed from {dept.name}'})
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)

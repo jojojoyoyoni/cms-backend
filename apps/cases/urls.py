@@ -19,7 +19,6 @@ urlpatterns = [
     path('<int:pk>/request_closure/', CaseViewSet.as_view({'post': 'request_closure'}), name='case-request-closure'),
     path('<int:pk>/approve_closure/', CaseViewSet.as_view({'post': 'approve_closure'}), name='case-approve-closure'),
     path('<int:pk>/reject_closure/', CaseViewSet.as_view({'post': 'reject_closure'}), name='case-reject-closure'),
-    
     # Sub-resources (notes, documents, tasks) via router
     path('', include(router.urls)),
 ]
